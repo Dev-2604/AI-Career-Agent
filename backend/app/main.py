@@ -5,6 +5,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.database import router as database_router
 from app.core.config import settings
+from app.api.routes.profile import router as profile_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -45,4 +46,9 @@ app.include_router(
     auth_router,
     prefix=f"{settings.API_V1_PREFIX}/auth",
     tags=["Authentication"],
+)
+app.include_router(
+    profile_router,
+    prefix=f"{settings.API_V1_PREFIX}/profile",
+    tags=["Candidate Profile"],
 )
