@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+        # Resume storage settings
+    RESUME_STORAGE_DIR: str = "storage/resumes"
+    MAX_RESUME_SIZE_MB: int = 5
+    ALLOWED_RESUME_EXTENSIONS: list[str] = [".pdf", ".docx"]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

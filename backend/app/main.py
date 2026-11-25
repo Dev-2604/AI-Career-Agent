@@ -7,7 +7,7 @@ from app.api.routes.database import router as database_router
 from app.core.config import settings
 from app.api.routes.profile import router as profile_router
 from app.api.routes.job_preferences import router as job_preferences_router
-
+from app.api.routes.resumes import router as resumes_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -58,4 +58,10 @@ app.include_router(
     job_preferences_router,
     prefix=f"{settings.API_V1_PREFIX}/job-preferences",
     tags=["Job Preferences"],
+)
+
+app.include_router(
+    resumes_router,
+    prefix=f"{settings.API_V1_PREFIX}/resumes",
+    tags=["Resumes"],
 )

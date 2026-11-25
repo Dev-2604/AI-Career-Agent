@@ -221,3 +221,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# User-uploaded files
+storage/resumes/
+storage/generated/
+
+# Uploaded document files
+*.pdf
+*.docx
