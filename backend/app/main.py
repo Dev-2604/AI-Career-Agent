@@ -6,6 +6,8 @@ from app.api.routes.health import router as health_router
 from app.api.routes.database import router as database_router
 from app.core.config import settings
 from app.api.routes.profile import router as profile_router
+from app.api.routes.job_preferences import router as job_preferences_router
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -51,4 +53,9 @@ app.include_router(
     profile_router,
     prefix=f"{settings.API_V1_PREFIX}/profile",
     tags=["Candidate Profile"],
+)
+app.include_router(
+    job_preferences_router,
+    prefix=f"{settings.API_V1_PREFIX}/job-preferences",
+    tags=["Job Preferences"],
 )
