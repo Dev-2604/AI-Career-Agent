@@ -8,6 +8,9 @@ from app.core.config import settings
 from app.api.routes.profile import router as profile_router
 from app.api.routes.job_preferences import router as job_preferences_router
 from app.api.routes.resumes import router as resumes_router
+from app.api.routes.github import router as github_router
+
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -64,4 +67,10 @@ app.include_router(
     resumes_router,
     prefix=f"{settings.API_V1_PREFIX}/resumes",
     tags=["Resumes"],
+)
+
+app.include_router(
+    github_router,
+    prefix=f"{settings.API_V1_PREFIX}/github",
+    tags=["GitHub Integration"],
 )
