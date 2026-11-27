@@ -1,8 +1,11 @@
 
+import io
 import uuid
+import zipfile
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
+from pypdf import PdfReader
 
 from app.core.config import settings
 
@@ -13,7 +16,6 @@ def get_user_resume_directory(user_id: uuid.UUID) -> Path:
     storage_root = Path(settings.RESUME_STORAGE_DIR).resolve()
     user_directory = (storage_root / str(user_id)).resolve()
 
-    # Ensure the resolved directory stays inside the storage root.
     if not user_directory.is_relative_to(storage_root):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -23,6 +25,63 @@ def get_user_resume_directory(user_id: uuid.UUID) -> Path:
     user_directory.mkdir(parents=True, exist_ok=True)
 
     return user_directory
+
+
+def validate_pdf(content: bytes) -> None:
+    """Validate the actual PDF structure."""
+
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PDF file signature.",
+        )
+
+    try:
+        reader = PdfReader(io.BytesIO(content), strict=True)
+
+        if reader.is_encrypted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password-protected PDF files are not supported.",
+            )
+
+        if len(reader.pages) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF contains no pages.",
+            )
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded PDF is corrupted or invalid.",
+        )
+
+
+def validate_docx(content: bytes) -> None:
+    """Validate the actual DOCX ZIP structure."""
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            if archive.testzip() is not None:
+                raise ValueError("Corrupted ZIP entry.")
+
+            required_files = {
+                "[Content_Types].xml",
+                "word/document.xml",
+            }
+
+            if not required_files.issubset(set(archive.namelist())):
+                raise ValueError("Invalid DOCX structure.")
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded DOCX is corrupted or invalid.",
+        )
 
 
 async def save_resume_file(
@@ -61,18 +120,11 @@ async def save_resume_file(
             detail=f"File size cannot exceed {settings.MAX_RESUME_SIZE_MB} MB.",
         )
 
-    # Basic file-signature validation.
-    if extension == ".pdf" and not content.startswith(b"%PDF-"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid PDF file.",
-        )
+    if extension == ".pdf":
+        validate_pdf(content)
 
-    if extension == ".docx" and not content.startswith(b"PK"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid DOCX file.",
-        )
+    elif extension == ".docx":
+        validate_docx(content)
 
     user_directory = get_user_resume_directory(user_id)
 
@@ -81,6 +133,7 @@ async def save_resume_file(
 
     try:
         file_path.write_bytes(content)
+
     except OSError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

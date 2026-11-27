@@ -11,7 +11,7 @@ def extract_pdf_text(file_path: str) -> str:
     """Extract text from a PDF resume."""
 
     try:
-        reader = PdfReader(file_path)
+        reader = PdfReader(file_path, strict=True)
 
         if reader.is_encrypted:
             raise HTTPException(
@@ -19,13 +19,29 @@ def extract_pdf_text(file_path: str) -> str:
                 detail="Password-protected PDF files are not supported.",
             )
 
-        extracted_text = []
+        extracted_pages = []
 
-        for page in reader.pages:
+        for page_number, page in enumerate(reader.pages, start=1):
             page_text = page.extract_text() or ""
-            extracted_text.append(page_text)
 
-        return "\n".join(extracted_text).strip()
+            if page_text.strip():
+                extracted_pages.append(
+                    f"--- Page {page_number} ---\n{page_text.strip()}"
+                )
+
+        extracted_text = "\n\n".join(extracted_pages).strip()
+
+        if not extracted_text:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "No selectable text found in this PDF. "
+                    "It may be a scanned document. "
+                    "Please upload a text-based PDF or DOCX."
+                ),
+            )
+
+        return extracted_text
 
     except HTTPException:
         raise
@@ -38,18 +54,18 @@ def extract_pdf_text(file_path: str) -> str:
 
 
 def extract_docx_text(file_path: str) -> str:
-    """Extract text from a DOCX resume."""
+    """Extract paragraphs and table content from a DOCX resume."""
 
     try:
         document = Document(file_path)
 
-        paragraphs = [
-            paragraph.text.strip()
-            for paragraph in document.paragraphs
-            if paragraph.text.strip()
-        ]
+        extracted_sections = []
 
-        table_text = []
+        for paragraph in document.paragraphs:
+            text = paragraph.text.strip()
+
+            if text:
+                extracted_sections.append(text)
 
         for table in document.tables:
             for row in table.rows:
@@ -60,9 +76,20 @@ def extract_docx_text(file_path: str) -> str:
                 ]
 
                 if cells:
-                    table_text.append(" | ".join(cells))
+                    extracted_sections.append(" | ".join(cells))
 
-        return "\n".join(paragraphs + table_text).strip()
+        extracted_text = "\n".join(extracted_sections).strip()
+
+        if not extracted_text:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No readable text found in the DOCX resume.",
+            )
+
+        return extracted_text
+
+    except HTTPException:
+        raise
 
     except Exception:
         raise HTTPException(
@@ -72,7 +99,7 @@ def extract_docx_text(file_path: str) -> str:
 
 
 def extract_resume_text(file_path: str) -> str:
-    """Extract text based on the resume file extension."""
+    """Extract text according to the file extension."""
 
     extension = Path(file_path).suffix.lower()
 
